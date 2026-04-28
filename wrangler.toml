@@ -1,6 +1,6 @@
 name = "cf-analytics"
 type = "javascript"
-account_id = "YOUR_ACCOUNT_ID"
+account_id = "e0914bbf92140660c12e968524e43a8a"
 workers_dev = true
 
 # 绑定到R2存储桶
@@ -11,11 +11,11 @@ bucket_name = "cf-logs"
 # KV命名空间绑定
 [[kv_namespaces]]
 binding = "CACHE"
-id = "YOUR_KV_ID"
+id = "90c5cf692cb84e009ae02cbfc64371c1"  # 将在部署时更新
 
 # 环境变量
 [env.production]
-routes = [{ pattern = "*.example.com/api/*", zone_id = "YOUR_ZONE_ID" }]
+routes = []  # 将在部署时配置自定义域名
 
 [env.development]
 routes = [{ pattern = "localhost:8787/api/*" }]

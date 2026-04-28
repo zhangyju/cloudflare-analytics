@@ -40,7 +40,6 @@ interface CloudflareLog {
   tlsVersion?: string;
   tlsCipher?: string;
   tlsClientAuth?: string;
-  tlsVersion?: string;
   edgeColoCode?: string;
   edgeColoId?: number;
   edgeColoName?: string;

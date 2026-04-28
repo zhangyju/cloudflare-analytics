@@ -141,19 +141,13 @@ export default function P75AnalyticsTab() {
                 <div className="bg-gray-700 rounded p-4">
                   <p className="text-gray-400 text-sm mb-1">缓存命中率</p>
                   <p className="text-2xl font-bold text-cf-orange">
-                    {(
-                      (logsData?.data?.logs?.filter((log: any) => log.cacheStatus === 'HIT').length || 0) /
-                      (logsData?.data?.logs?.length || 1)
-                    ) * 100).toFixed(1)}%
+                    {((logsData?.data?.logs?.filter((log: any) => log.cacheStatus === 'HIT').length || 0) / (logsData?.data?.logs?.length || 1) * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div className="bg-gray-700 rounded p-4">
                   <p className="text-gray-400 text-sm mb-1">Argo使用率</p>
                   <p className="text-2xl font-bold text-cf-orange">
-                    {(
-                      (logsData?.data?.logs?.filter((log: any) => log.argoSmartRouting).length || 0) /
-                      (logsData?.data?.logs?.length || 1)
-                    ) * 100).toFixed(1)}%
+                    {((logsData?.data?.logs?.filter((log: any) => log.argoSmartRouting).length || 0) / (logsData?.data?.logs?.length || 1) * 100).toFixed(1)}%
                   </p>
                 </div>
               </div>

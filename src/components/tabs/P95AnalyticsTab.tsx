@@ -147,28 +147,19 @@ export default function P95AnalyticsTab() {
                   <div>
                     <p className="text-gray-400 text-xs mb-1">缓存命中率</p>
                     <p className="text-lg font-bold text-red-400">
-                      {(
-                        (logsData?.data?.logs?.filter((log: any) => log.cacheStatus === 'HIT').length || 0) /
-                        (logsData?.data?.logs?.length || 1)
-                      ) * 100).toFixed(1)}%
+                      {((logsData?.data?.logs?.filter((log: any) => log.cacheStatus === 'HIT').length || 0) / (logsData?.data?.logs?.length || 1) * 100).toFixed(1)}%
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-400 text-xs mb-1">Origin错误率</p>
                     <p className="text-lg font-bold text-red-400">
-                      {(
-                        (logsData?.data?.logs?.filter((log: any) => (log.httpStatus || 200) >= 400).length || 0) /
-                        (logsData?.data?.logs?.length || 1)
-                      ) * 100).toFixed(1)}%
+                      {((logsData?.data?.logs?.filter((log: any) => (log.httpStatus || 200) >= 400).length || 0) / (logsData?.data?.logs?.length || 1) * 100).toFixed(1)}%
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-400 text-xs mb-1">Argo启用情况</p>
                     <p className="text-lg font-bold text-red-400">
-                      {(
-                        (logsData?.data?.logs?.filter((log: any) => log.argoSmartRouting).length || 0) /
-                        (logsData?.data?.logs?.length || 1)
-                      ) * 100).toFixed(1)}%
+                      {((logsData?.data?.logs?.filter((log: any) => log.argoSmartRouting).length || 0) / (logsData?.data?.logs?.length || 1) * 100).toFixed(1)}%
                     </p>
                   </div>
                 </div>
