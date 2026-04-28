@@ -93,6 +93,51 @@ interface LogQuery {
 /**
  * 从R2查询日志
  */
+// 演示数据生成器（用于测试，当 R2 中没有真实日志时使用）
+export function generateDemoLogs(count: number = 1000): CloudflareLog[] {
+  const logs: CloudflareLog[] = [];
+  const countries = ['US', 'CN', 'GB', 'DE', 'JP', 'IN', 'BR', 'FR', 'CA', 'AU', 'SG', 'KR'];
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+  ];
+  const cacheStatuses: Array<'HIT' | 'MISS' | 'EXPIRED' | 'BYPASS'> = ['HIT', 'MISS', 'EXPIRED', 'BYPASS'];
+  const httpMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+  const httpStatuses = [200, 201, 204, 301, 302, 304, 400, 401, 403, 404, 500, 502, 503];
+  const contentTypes = ['application/json', 'text/html', 'image/png', 'image/jpeg', 'text/css', 'application/javascript'];
+
+  const now = Date.now();
+  const lastHour = now - 3600000;
+
+  for (let i = 0; i < count; i++) {
+    const timestamp = lastHour + Math.random() * 3600000;
+    const responseTime = Math.floor(Math.random() * 2000) + Math.random() * (Math.random() > 0.8 ? 5000 : 0); // 偶尔有很慢的请求
+    
+    logs.push({
+      timestamp,
+      clientCountry: countries[Math.floor(Math.random() * countries.length)],
+      clientIP: `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+      cacheStatus: cacheStatuses[Math.floor(Math.random() * cacheStatuses.length)],
+      originResponseTime: Math.floor(Math.random() * 3000),
+      edgeResponseTime: responseTime,
+      rayID: `ray${Math.random().toString(36).substring(7)}`,
+      httpStatus: httpStatuses[Math.floor(Math.random() * httpStatuses.length)],
+      httpMethod: httpMethods[Math.floor(Math.random() * httpMethods.length)],
+      httpUserAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+      contentType: contentTypes[Math.floor(Math.random() * contentTypes.length)],
+      country: countries[Math.floor(Math.random() * countries.length)],
+      httpHost: 'analytics.example.com',
+      httpProtocol: 'HTTP/2',
+      tlsVersion: 'TLSv1.3',
+      edgeColoCode: 'LAX',
+    });
+  }
+
+  return logs;
+}
+
 export async function queryLogsFromR2(
   bucket: R2Bucket,
   startTime: number,

@@ -1,4 +1,4 @@
-import { queryLogsFromR2 } from '../services/logService';
+import { queryLogsFromR2, generateDemoLogs } from '../services/logService';
 import { calculatePercentiles, aggregateGeoData } from '../services/analytics';
 
 interface QueryRequest {
@@ -11,15 +11,28 @@ interface QueryRequest {
     percentile?: 'p75' | 'p95';
   };
   limit?: number;
+  useDemo?: boolean;
 }
 
 export async function logQueryHandler(req: Request, env: any) {
   try {
     const body = (await req.json()) as QueryRequest;
-    const { startTime, endTime, filters, limit = 10000 } = body;
+    const { startTime, endTime, filters, limit = 10000, useDemo = false } = body;
 
-    // 1. 从R2查询日志
-    const logs = await queryLogsFromR2(env.LOGS_BUCKET, startTime, endTime, filters, limit);
+    // 1. 从R2查询日志，如果没有数据或启用演示模式则使用演示数据
+    let logs;
+    if (useDemo) {
+      console.log('Using demo logs for testing');
+      logs = generateDemoLogs(1000);
+    } else {
+      logs = await queryLogsFromR2(env.LOGS_BUCKET, startTime, endTime, filters, limit);
+      
+      // 如果 R2 中没有日志，使用演示数据
+      if (logs.length === 0) {
+        console.log('No logs found in R2, using demo logs');
+        logs = generateDemoLogs(1000);
+      }
+    }
 
     // 2. 计算分位数
     const responseTimes = logs.map((log) => log.originResponseTime || 0).sort((a, b) => a - b);
