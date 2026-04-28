@@ -102,7 +102,7 @@ wrangler pages deploy dist/pages --project-name cf-analytics
 | Secret 名称 | 值 |
 |------------|-----|
 | `CLOUDFLARE_API_TOKEN` | `[YOUR_API_TOKEN]` |
-| `CLOUDFLARE_ACCOUNT_ID` | `e0914bbf92140660c12e968524e43a8a` |
+| `CLOUDFLARE_ACCOUNT_ID` | `[YOUR_ACCOUNT_ID]` |
 
 3. 后续每次 push 到 main 分支都会自动部署
 

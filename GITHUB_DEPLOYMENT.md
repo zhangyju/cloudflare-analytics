@@ -95,7 +95,7 @@ EOF
 | Secret名称 | 值 |
 |-----------|-----|
 | `CLOUDFLARE_API_TOKEN` | `[YOUR_API_TOKEN]` |
-| `CLOUDFLARE_ACCOUNT_ID` | `e0914bbf92140660c12e968524e43a8a` |
+| `CLOUDFLARE_ACCOUNT_ID` | `[YOUR_ACCOUNT_ID]` |
 
 ---
 
