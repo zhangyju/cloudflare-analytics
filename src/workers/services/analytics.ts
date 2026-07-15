@@ -68,7 +68,11 @@ export function aggregateGeoData(logs: CloudflareLog[]): GeoData[] {
   const result: GeoData[] = [];
 
   geoMap.forEach((countryLogs, country) => {
-    const responseTimes = countryLogs.map((log) => log.originResponseTime || 0).sort((a, b) => a - b);
+    // 过滤掉 originResponseTime = 0 的请求
+    const responseTimes = countryLogs
+      .map((log) => log.originResponseTime ?? 0)
+      .filter((t) => t > 0)
+      .sort((a, b) => a - b);
     const cacheHits = countryLogs.filter((log) => log.cacheStatus === 'HIT').length;
 
     // 获取最常用的edge节点
@@ -97,7 +101,9 @@ export function aggregateGeoData(logs: CloudflareLog[]): GeoData[] {
  * 聚合整体统计
  */
 export function aggregateStats(logs: CloudflareLog[]): AggregateStats {
-  const responseTimes = logs.map((log) => log.originResponseTime || 0).sort((a, b) => a - b);
+  // 过滤掉 originResponseTime = 0 的请求（边缘直接处理，未打到 origin，不纳入延迟计算）
+  const originLogs = logs.filter((log) => (log.originResponseTime ?? 0) > 0);
+  const responseTimes = originLogs.map((log) => log.originResponseTime).sort((a, b) => a - b);
   const edgeResponseTimes = logs.map((log) => log.edgeResponseTime || 0).sort((a, b) => a - b);
 
   // 统计各维度数据
@@ -152,8 +158,8 @@ export function aggregateStats(logs: CloudflareLog[]): AggregateStats {
     p75ResponseTime: calculatePercentile(responseTimes, 75),
     p95ResponseTime: calculatePercentile(responseTimes, 95),
     p99ResponseTime: calculatePercentile(responseTimes, 99),
-    minResponseTime: Math.min(...responseTimes, 0),
-    maxResponseTime: Math.max(...responseTimes, 0),
+    minResponseTime: responseTimes.length ? responseTimes[0] : 0,
+    maxResponseTime: responseTimes.length ? responseTimes[responseTimes.length - 1] : 0,
     cacheHitRatio: cacheHits / logs.length,
     argoSmartRoutingUsage: argoUsage / logs.length,
     avgEdgeResponseTime: calculateAverage(edgeResponseTimes),
