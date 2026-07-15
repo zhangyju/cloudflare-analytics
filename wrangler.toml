@@ -7,6 +7,10 @@ compatibility_date = "2026-04-28"
 [env.production]
 routes = []  # 将在部署时配置自定义域名
 
+# Cron：每15分钟聚合一次 R2 日志数据到 KV
+[env.production.triggers]
+crons = ["*/15 * * * *"]
+
 # 绑定到R2存储桶
 [[env.production.r2_buckets]]
 binding = "LOGS_BUCKET"

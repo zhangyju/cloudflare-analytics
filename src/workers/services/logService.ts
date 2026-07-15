@@ -154,47 +154,57 @@ export async function queryLogsFromR2(
     // 根据时间范围生成日期列表
     const dates = generateDateRange(startTime, endTime);
 
+    // 每天最多列出并发读取的文件数，控制 Worker CPU 时间
+    const MAX_FILES_PER_DAY = 10;
+    // 并发读取的并发度
+    const CONCURRENCY = 5;
+
     for (const date of dates) {
+      if (logs.length >= limit) break;
+
       // R2 路径格式: zone-logs/{date}/
       const prefix = `zone-logs/${date}/`;
-      const listResult = await bucket.list({ prefix });
+      const listResult = await bucket.list({ prefix, limit: MAX_FILES_PER_DAY });
 
-      for (const object of listResult.objects) {
-        if (processedPaths.has(object.key)) continue;
-        processedPaths.add(object.key);
+      // 去重
+      const objects = listResult.objects.filter((o) => !processedPaths.has(o.key));
+      objects.forEach((o) => processedPaths.add(o.key));
 
-        try {
-          const file = await bucket.get(object.key);
-          if (!file) continue;
+      // 并发读取文件（分批，每批 CONCURRENCY 个）
+      for (let i = 0; i < objects.length && logs.length < limit; i += CONCURRENCY) {
+        const batch = objects.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map(async (object) => {
+            const file = await bucket.get(object.key);
+            if (!file) return [];
+            // Logpush 文件扩展名为 .log.gz 但实际是未压缩的 NDJSON
+            const content = await file.text();
+            return content
+              .split('\n')
+              .filter((line) => line.trim())
+              .map((line) => {
+                try {
+                  const raw = JSON.parse(line);
+                  return normalizePascalLog(raw);
+                } catch {
+                  return null;
+                }
+              })
+              .filter((log): log is CloudflareLog => log !== null && applyFilters(log, filters));
+          })
+        );
 
-          // Logpush 文件扩展名为 .log.gz 但实际是未压缩的 NDJSON
-          const content = await file.text();
-          const logLines = content.split('\n').filter((line) => line.trim());
-
-          for (const line of logLines) {
-            if (logs.length >= limit) break;
-
-            try {
-              // Logpush 原始字段为 PascalCase，转换为 camelCase
-              const raw = JSON.parse(line);
-              const log: CloudflareLog = normalizePascalLog(raw);
-
-              // 应用过滤器
-              if (applyFilters(log, filters)) {
-                logs.push(log);
-              }
-            } catch (e) {
-              console.warn('Failed to parse log line:', e);
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            for (const log of result.value) {
+              if (logs.length >= limit) break;
+              logs.push(log);
             }
+          } else {
+            console.warn('Failed to process file:', result.reason);
           }
-
-          if (logs.length >= limit) break;
-        } catch (error) {
-          console.warn(`Failed to process ${object.key}:`, error);
         }
       }
-
-      if (logs.length >= limit) break;
     }
 
     return logs;
@@ -238,7 +248,7 @@ function applyFilters(log: CloudflareLog, filters?: LogQuery['filters']): boolea
  * R2 实际字段：RayID, CacheCacheStatus, EdgeResponseStatus, OriginResponseStatus,
  *              OriginResponseTime, ClientIP, ClientCountry, ClientRequestUserAgent
  */
-function normalizePascalLog(raw: Record<string, any>): CloudflareLog {
+export function normalizePascalLog(raw: Record<string, any>): CloudflareLog {
   return {
     // 必须字段
     timestamp: raw.EdgeStartTimestamp ?? raw.EdgeEndTimestamp ?? Date.now(),
