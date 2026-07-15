@@ -1,6 +1,8 @@
 /**
  * 从R2存储日志的服务
- * 日志格式: /logs/{date}/{hour}/{request_id}.json
+ * 日志格式: zone-logs/{date}/{timestamp}_{timestamp}_{id}.log.gz
+ * 注意：文件扩展名为 .log.gz 但实际内容是未压缩的 NDJSON（每行一条 JSON）
+ * 字段名为 PascalCase（Cloudflare Logpush 原始格式）
  */
 
 interface CloudflareLog {
@@ -153,8 +155,8 @@ export async function queryLogsFromR2(
     const dates = generateDateRange(startTime, endTime);
 
     for (const date of dates) {
-      // 列出该日期下的所有小时日志
-      const prefix = `logs/${date}/`;
+      // R2 路径格式: zone-logs/{date}/
+      const prefix = `zone-logs/${date}/`;
       const listResult = await bucket.list({ prefix });
 
       for (const object of listResult.objects) {
@@ -165,6 +167,7 @@ export async function queryLogsFromR2(
           const file = await bucket.get(object.key);
           if (!file) continue;
 
+          // Logpush 文件扩展名为 .log.gz 但实际是未压缩的 NDJSON
           const content = await file.text();
           const logLines = content.split('\n').filter((line) => line.trim());
 
@@ -172,7 +175,9 @@ export async function queryLogsFromR2(
             if (logs.length >= limit) break;
 
             try {
-              const log = JSON.parse(line) as CloudflareLog;
+              // Logpush 原始字段为 PascalCase，转换为 camelCase
+              const raw = JSON.parse(line);
+              const log: CloudflareLog = normalizePascalLog(raw);
 
               // 应用过滤器
               if (applyFilters(log, filters)) {
@@ -229,6 +234,33 @@ function applyFilters(log: CloudflareLog, filters?: LogQuery['filters']): boolea
 }
 
 /**
+ * 将 Logpush PascalCase 字段转换为代码内部使用的 camelCase 字段
+ * R2 实际字段：RayID, CacheCacheStatus, EdgeResponseStatus, OriginResponseStatus,
+ *              OriginResponseTime, ClientIP, ClientCountry, ClientRequestUserAgent
+ */
+function normalizePascalLog(raw: Record<string, any>): CloudflareLog {
+  return {
+    // 必须字段
+    timestamp: raw.EdgeStartTimestamp ?? raw.EdgeEndTimestamp ?? Date.now(),
+    clientCountry: (raw.ClientCountry ?? raw.ClientIpCountry ?? '').toLowerCase(),
+    clientIP: raw.ClientIP ?? raw.ClientIp ?? '',
+    cacheStatus: (raw.CacheCacheStatus ?? raw.CacheStatus ?? 'BYPASS') as CloudflareLog['cacheStatus'],
+    originResponseTime: raw.OriginResponseTime ?? 0,
+    edgeResponseTime: raw.EdgeResponseTime ?? raw.OriginResponseTime ?? 0,
+    // 可选字段
+    rayID: raw.RayID ?? raw.RayId ?? '',
+    httpStatus: raw.EdgeResponseStatus ?? raw.OriginResponseStatus ?? 200,
+    httpMethod: raw.ClientRequestMethod ?? raw.HttpMethod ?? '',
+    httpUserAgent: raw.ClientRequestUserAgent ?? raw.HttpUserAgent ?? '',
+    httpHost: raw.ClientRequestHost ?? raw.HttpHost ?? '',
+    httpProtocol: raw.ClientRequestProtocol ?? raw.HttpProtocol ?? '',
+    country: (raw.ClientCountry ?? '').toLowerCase(),
+    // 原始字段透传（供扩展使用）
+    ...raw,
+  } as CloudflareLog;
+}
+
+/**
  * 生成日期范围
  */
 function generateDateRange(startTime: number, endTime: number): string[] {
@@ -261,7 +293,7 @@ export async function* streamLogsFromR2(
   let batch: CloudflareLog[] = [];
 
   for (const date of dates) {
-    const prefix = `logs/${date}/`;
+    const prefix = `zone-logs/${date}/`;
     const listResult = await bucket.list({ prefix });
 
     for (const object of listResult.objects) {
@@ -274,7 +306,8 @@ export async function* streamLogsFromR2(
 
         for (const line of logLines) {
           try {
-            const log = JSON.parse(line) as CloudflareLog;
+            const raw = JSON.parse(line);
+            const log = normalizePascalLog(raw);
             if (applyFilters(log, filters)) {
               batch.push(log);
               if (batch.length >= batchSize) {
