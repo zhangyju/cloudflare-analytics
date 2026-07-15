@@ -246,17 +246,31 @@ function applyFilters(log: CloudflareLog, filters?: LogQuery['filters']): boolea
 /**
  * 将 Logpush PascalCase 字段转换为代码内部使用的 camelCase 字段
  * R2 实际字段：RayID, CacheCacheStatus, EdgeResponseStatus, OriginResponseStatus,
- *              OriginResponseTime, ClientIP, ClientCountry, ClientRequestUserAgent
+ *              OriginResponseTime (单位: 纳秒), ClientIP, ClientCountry, ClientRequestUserAgent
+ *
+ * 注意：OriginResponseTime 单位是纳秒，需要除以 1,000,000 换算为毫秒
+ * 参考：https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/http_requests/
+ * 新字段 OriginResponseDurationMs 已经是毫秒，优先使用
  */
 export function normalizePascalLog(raw: Record<string, any>): CloudflareLog {
+  // OriginResponseTime 单位为纳秒 → 转换为毫秒
+  // 优先使用新字段 OriginResponseDurationMs（已是毫秒），否则用 OriginResponseTime / 1,000,000
+  const originResponseTimeMs =
+    raw.OriginResponseDurationMs ??
+    (raw.OriginResponseTime != null ? Math.round(raw.OriginResponseTime / 1_000_000) : 0);
+
+  const edgeResponseTimeMs =
+    raw.EdgeResponseDurationMs ??
+    (raw.EdgeResponseTime != null ? Math.round(raw.EdgeResponseTime / 1_000_000) : originResponseTimeMs);
+
   return {
     // 必须字段
     timestamp: raw.EdgeStartTimestamp ?? raw.EdgeEndTimestamp ?? Date.now(),
     clientCountry: (raw.ClientCountry ?? raw.ClientIpCountry ?? '').toLowerCase(),
     clientIP: raw.ClientIP ?? raw.ClientIp ?? '',
     cacheStatus: (raw.CacheCacheStatus ?? raw.CacheStatus ?? 'BYPASS') as CloudflareLog['cacheStatus'],
-    originResponseTime: raw.OriginResponseTime ?? 0,
-    edgeResponseTime: raw.EdgeResponseTime ?? raw.OriginResponseTime ?? 0,
+    originResponseTime: originResponseTimeMs,
+    edgeResponseTime: edgeResponseTimeMs,
     // 可选字段
     rayID: raw.RayID ?? raw.RayId ?? '',
     httpStatus: raw.EdgeResponseStatus ?? raw.OriginResponseStatus ?? 200,
